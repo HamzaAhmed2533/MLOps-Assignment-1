@@ -28,7 +28,6 @@ def test_predict_valid(client):
     assert data["predicted_units_sold"] > 0
 
 
-
 def test_predict_missing_value(client):
     """Test prediction with missing ad_spend"""
     response = client.post("/predict", json={})
