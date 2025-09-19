@@ -1,35 +1,34 @@
-from flask import Flask, request, jsonify
-import pandas as pd
-from sklearn.linear_model import LinearRegression
+import pytest
+from app import app
+
+@pytest.fixture
+def client():
+    app.testing = True
+    with app.test_client() as client:
+        yield client
 
 
-app = Flask(__name__)
-
-# Train a simple model when the app starts
-df = pd.DataFrame({
-    "ad_spend": [100, 200, 300, 400, 500],
-    "units_sold": [10, 25, 40, 55, 70],
-})
-model = LinearRegression()
-model.fit(df[["ad_spend"]], df["units_sold"])
+def test_home(client):
+    """Test the home endpoint"""
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["message"] == "Flask ML API is running!"
 
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "Flask ML API is running!"})
+def test_predict_valid(client):
+    """Test prediction with valid input"""
+    response = client.post("/predict", json={"ad_spend": 300})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "predicted_units_sold" in data
+    # Rough sanity check: prediction should be around 40
+    assert 35 <= data["predicted_units_sold"] <= 45
 
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json()
-    if not data or "ad_spend" not in data:
-        return jsonify({"error": "Missing 'ad_spend' value"}), 400
-
-    ad_spend = data["ad_spend"]
-    predicted = model.predict([[ad_spend]])[0]
-
-    return jsonify({"predicted_units_sold": float(predicted)})
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
+def test_predict_missing_value(client):
+    """Test prediction with missing ad_spend"""
+    response = client.post("/predict", json={})
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
