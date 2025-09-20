@@ -1,0 +1,39 @@
+name: Trigger Jenkins Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trigger Jenkins job
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+        run: |
+          set -euo pipefail
+          if [ -z "$JENKINS_URL" ] || [ -z "$JENKINS_USER" ] || [ -z "$JENKINS_API_TOKEN" ] || [ -z "$JENKINS_JOB_NAME" ]; then
+            echo "::error::Missing one or more Jenkins secrets"; exit 1
+          fi
+          BASE="${JENKINS_URL%/}"
+          JOB_URL="$BASE/job/$JENKINS_JOB_NAME"
+          # try crumb
+          CRUMB_JSON=$(curl -fsS -u "$JENKINS_USER:$JENKINS_API_TOKEN" "$BASE/crumbIssuer/api/json" || true)
+          if echo "$CRUMB_JSON" | grep -q '"crumb"'; then
+            CRUMB_FIELD=$(echo "$CRUMB_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('crumbRequestField',''))")
+            CRUMB=$(echo "$CRUMB_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('crumb',''))")
+            curl -s -u "$JENKINS_USER:$JENKINS_API_TOKEN" -H "$CRUMB_FIELD: $CRUMB" -X POST "$JOB_URL/build?delay=0sec" -I
+          else
+            curl -s -u "$JENKINS_USER:$JENKINS_API_TOKEN" -X POST "$JOB_URL/build?delay=0sec" -I
+          fi
