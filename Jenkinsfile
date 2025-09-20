@@ -21,9 +21,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.DOCKERHUB_REPO}"
-        DOCKERHUB_CREDENTIALS = '<JENKINS_DOCKERHUB_CREDENTIAL_ID>'
-        ADMIN_EMAIL_CREDENTIAL = '<JENKINS_ADMIN_EMAIL_CREDENTIAL_ID>'
+        DOCKERHUB_USERNAME = 'huzaifa007'
+        DOCKERHUB_REPO = 'mlops-ass'
+        DOCKERHUB_FULL_REPO = "${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}"
+        DOCKERHUB_CREDENTIALS = 'jenkins-dockerhub-cred'
+        ADMIN_EMAIL_CREDENTIAL = 'jenkins-admin-email'
     }
 
     stages {
@@ -37,8 +39,8 @@ pipeline {
             steps {
                 script {
                     def imageTag = "${env.BUILD_NUMBER}"
-                    def imageName = "${DOCKERHUB_REPO}:${imageTag}"
-                    def latestTag = "${DOCKERHUB_REPO}:latest"
+                    def imageName = "${DOCKERHUB_FULL_REPO}:${imageTag}"
+                    def latestTag = "${DOCKERHUB_FULL_REPO}:latest"
 
                     sh "docker build -t ${imageName} -f Dockerfile ."
                     sh "docker tag ${imageName} ${latestTag}"
@@ -54,8 +56,8 @@ pipeline {
                                                   passwordVariable: 'DOCKERHUB_PASS')]) {
                     sh """
                         echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-                        docker push ${DOCKERHUB_REPO}:${BUILD_NUMBER}
-                        docker push ${DOCKERHUB_REPO}:latest
+                        docker push ${DOCKERHUB_FULL_REPO}:${BUILD_NUMBER}
+                        docker push ${DOCKERHUB_FULL_REPO}:latest
                         docker logout
                     """
                 }
@@ -77,7 +79,7 @@ pipeline {
                 if (adminEmail) {
                     emailext (
                         subject: "Jenkins: Docker push SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: "Build and push succeeded.\nJob: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nRepository: ${DOCKERHUB_REPO}",
+                        body: "Build and push succeeded.\nJob: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nRepository: ${DOCKERHUB_FULL_REPO}",
                         to: adminEmail
                     )
                 } else {
